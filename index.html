@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevTech Academy — Alunos</title>
+
+<h1>Gerenciamento de alunos</h1>
+
+<form id="form-aluno">
+  <label>Nome <input name="nome" required></label>
+  <label>Idade <input name="idade" type="number" min="1" required></label>
+  <label>Curso
+    <select name="curso" required>
+      <option value="JavaScript">JavaScript</option>
+      <option value="Python">Python</option>
+      <option value="Java">Java</option>
+    </select>
+  </label>
+  <label>Nota final <input name="notaFinal" type="number" min="0" max="10" step="0.1" required></label>
+  <button id="salvar" type="submit">Cadastrar</button>
+  <button id="cancelar" type="button" hidden>Cancelar edição</button>
+</form>
+
+<h2>Alunos</h2>
+<table border="1">
+  <thead><tr><th>Nome</th><th>Idade</th><th>Curso</th><th>Nota</th><th>Situação</th><th>Ações</th></tr></thead>
+  <tbody id="lista"></tbody>
+</table>
+
+<h2>Relatórios</h2>
+<button id="relatorios" type="button">Atualizar relatórios</button>
+<ul id="relatorio"></ul>
+
+<script>
+class Aluno {
+  constructor(nome, idade, curso, notaFinal) {
+    Object.assign(this, { nome, idade: Number(idade), curso, notaFinal: Number(notaFinal) });
+  }
+  isAprovado() { return this.notaFinal >= 7; }
+  toString() { return `${this.nome} — ${this.idade} anos, ${this.curso}, nota ${this.notaFinal}`; }
+}
+
+const alunos = [];
+const form = document.querySelector('#form-aluno');
+const lista = document.querySelector('#lista');
+const relatorio = document.querySelector('#relatorio');
+const botaoSalvar = document.querySelector('#salvar');
+const botaoCancelar = document.querySelector('#cancelar');
+let indiceEdicao = null;
+
+const renderizar = () => {
+  lista.replaceChildren(...alunos.map((aluno, i) => {
+    const linha = document.createElement('tr');
+    [aluno.nome, aluno.idade, aluno.curso, aluno.notaFinal, aluno.isAprovado() ? 'Aprovado' : 'Reprovado']
+      .forEach(valor => { const celula = document.createElement('td'); celula.textContent = valor; linha.append(celula); });
+    const acoes = document.createElement('td');
+    const editar = document.createElement('button'); editar.type = 'button'; editar.dataset.acao = 'editar'; editar.dataset.indice = i; editar.textContent = 'Editar';
+    const excluir = document.createElement('button'); excluir.type = 'button'; excluir.dataset.acao = 'excluir'; excluir.dataset.indice = i; excluir.textContent = 'Excluir';
+    acoes.append(editar, excluir); linha.append(acoes);
+    return linha;
+  }));
+};
+
+const cancelarEdicao = () => {
+  indiceEdicao = null; form.reset(); botaoSalvar.textContent = 'Cadastrar'; botaoCancelar.hidden = true;
+};
+
+form.addEventListener('submit', evento => {
+  evento.preventDefault();
+  const dados = new FormData(form);
+  const aluno = new Aluno(dados.get('nome').trim(), dados.get('idade'), dados.get('curso'), dados.get('notaFinal'));
+  if (indiceEdicao === null) {
+    alunos.push(aluno); alert(`Aluno cadastrado: ${aluno.nome}`);
+  } else {
+    alunos[indiceEdicao] = aluno; alert(`Aluno editado: ${aluno.nome}`);
+  }
+  cancelarEdicao(); renderizar();
+});
+
+lista.addEventListener('click', evento => {
+  const botao = evento.target.closest('button[data-acao]');
+  if (!botao) return;
+  const i = Number(botao.dataset.indice);
+  if (botao.dataset.acao === 'editar') {
+    const aluno = alunos[i]; indiceEdicao = i;
+    Object.entries({ nome: aluno.nome, idade: aluno.idade, curso: aluno.curso, notaFinal: aluno.notaFinal })
+      .forEach(([campo, valor]) => { form.elements[campo].value = valor; });
+    botaoSalvar.textContent = 'Salvar edição'; botaoCancelar.hidden = false;
+    form.elements.nome.focus();
+  } else {
+    const [removido] = alunos.splice(i, 1);
+    if (indiceEdicao === i) cancelarEdicao();
+    else if (indiceEdicao !== null && indiceEdicao > i) indiceEdicao--;
+    alert(`Aluno excluído: ${removido.nome}`); renderizar();
+  }
+});
+
+botaoCancelar.addEventListener('click', () => cancelarEdicao());
+
+document.querySelector('#relatorios').addEventListener('click', () => {
+  const media = campo => alunos.length
+    ? (alunos.reduce((soma, aluno) => soma + aluno[campo], 0) / alunos.length).toFixed(2)
+    : '—';
+  const aprovados = alunos.filter(aluno => aluno.isAprovado()).map(aluno => aluno.nome);
+  const nomes = alunos.map(aluno => aluno.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const porCurso = alunos.reduce((contagem, aluno) => {
+    contagem[aluno.curso] = (contagem[aluno.curso] || 0) + 1; return contagem;
+  }, {});
+  const itens = [
+    `Aprovados: ${aprovados.join(', ') || 'nenhum'}`,
+    `Média das notas: ${media('notaFinal')}`,
+    `Média das idades: ${media('idade')}`,
+    `Nomes em ordem alfabética: ${nomes.join(', ') || 'nenhum'}`,
+    `Alunos por curso: ${Object.entries(porCurso).map(([curso, total]) => `${curso}: ${total}`).join('; ') || 'nenhum'}`
+  ];
+  relatorio.replaceChildren(...itens.map(texto => { const li = document.createElement('li'); li.textContent = texto; return li; }));
+});
+</script>
+</html>
